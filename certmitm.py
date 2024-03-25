@@ -11,6 +11,15 @@ import certmitm.util
 import certmitm.certtest
 import certmitm.connection
 
+from datetime import datetime
+
+output_dir = os.path.join(os.getcwd(), "outputs")
+current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+output_file = os.path.join(output_dir, f"output_{current_datetime}.json")
+critical_output_file = os.path.join(output_dir, f"critical_output_{current_datetime}.json")
+
+print("output directory is: ", output_dir, "\noutput file is: ", output_file)
+
 description = """
                _             _ _               _                                     
               | |           (_) |             | |                                    
@@ -42,6 +51,15 @@ def handle_args():
     #parser.add_argument('--upstream-proxy', nargs=1, help="Upstream proxy for MITM. For example, BURP (127.0.0.1:8080)", metavar="ADDRESS") #not yet implemented
     return parser.parse_args()
 
+def log_to_json(data, critical=False):
+    if(critical):
+        with open(critical_output_file, 'a') as critical_file:
+            json.dump(data, critical_file)
+            critical_file.write('\n')
+    with open(output_file, 'a') as file:
+        json.dump(data, file)
+        file.write('\n')  # Add newline after each JSON object
+
 def threaded_connection_handler(downstream_socket):
     try:
         global connection_tests
@@ -68,7 +86,9 @@ def threaded_connection_handler(downstream_socket):
                 # Lets try to wrap the client connection to TLS
                 mitm_connection.wrap_downstream(test.context)
             except (ssl.SSLError, ConnectionResetError, BrokenPipeError, TimeoutError) as e:
-                logger.info(f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = {e}")
+                data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = {e}"
+                logger.info(data)
+                log_to_json(data)
                 return
             mitm_connection.set_upstream(connection.upstream_ip, connection.upstream_port)
             if mitm_connection.upstream_socket:
@@ -78,7 +98,9 @@ def threaded_connection_handler(downstream_socket):
                     logger.debug("Cannot wrap upstream socket. Destroying also the TCP socket.")
                     mitm_connection.upstream_socket = None
             if not mitm_connection.upstream_socket:
-                logger.info(f"Cannot connect to {connection.upstream_ip}: with TLS, still trying to intercept without mitm.")
+                data = f"Cannot connect to {connection.upstream_ip}: with TLS, still trying to intercept without mitm."
+                logger.info(data)
+                log_to_json(data)
 
         from_client = None
         from_server = None
@@ -129,7 +151,9 @@ def threaded_connection_handler(downstream_socket):
                                 if not mitm:
                                     if not logged_insecure:
                                         # Insecure connection! GG happy bounties, Lets log this and add the tests to successfull test list for future mitm
-                                        logger.critical(f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = data intercepted!")
+                                        data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = data intercepted!"
+                                        logger.critical(data)
+                                        log_to_json(data)
                                         connection_tests.add_successfull_test(connection, test)
                                         logged_insecure = True
                                     insecure_data += from_client
@@ -176,7 +200,9 @@ def threaded_connection_handler(downstream_socket):
         except (ConnectionResetError, ssl.SSLEOFError, TimeoutError):
             # We might get this depending on the TLS implementation
             if mitm_connection.downstream_tls and not insecure_data:
-                logger.info(f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received, someone closed connection")
+                data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received, someone closed connection"
+                logger.info(data)
+                log_to_json(data)
         except Exception as e:
             # Something unexpected happened
             logger.exception(e)
@@ -185,13 +211,18 @@ def threaded_connection_handler(downstream_socket):
             # Log insecure data
             if insecure_data:
                 if args.show_data_all:
-                    logger.critical(f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data}'")
+                    data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data}'"
+                    logger.critical(data)
+                    log_to_json(data)
                 elif args.show_data:
-                    logger.critical(f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data[:2048]}'")
+                    data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data[:2048]}'"
+                    logger.critical(data)
+                    log_to_json(data)
             # Log secure connections
             elif mitm_connection.downstream_tls and not mitm:
-                logger.info(f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received")
-
+                data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received"
+                logger.info(data)
+                log_to_json(data)
             try:
                 # Close TLS gracefully
                 mitm_connection.downstream_socket.unwrap()
