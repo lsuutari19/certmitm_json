@@ -138,7 +138,7 @@ def threaded_connection_handler(downstream_socket):
             except (ssl.SSLError, ConnectionResetError, BrokenPipeError, TimeoutError) as e:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = {e}"
                 logger.info(data)
-                print("\nthis is the 2th collect_json_data:")
+                print("\nOut error data:")
                 collect_json_data(data)
                 return
             mitm_connection.set_upstream(connection.upstream_ip, connection.upstream_port)
@@ -151,7 +151,7 @@ def threaded_connection_handler(downstream_socket):
             if not mitm_connection.upstream_socket:
                 data = f"Cannot connect to {connection.upstream_ip}: with TLS, still trying to intercept without mitm."
                 logger.info(data)
-                print("\nthis is the 3th collect_json_data:")
+                ("\nOUT - this is the upstream not mitm:")
                 collect_json_data(data)
 
         from_client = None
@@ -254,7 +254,7 @@ def threaded_connection_handler(downstream_socket):
             if mitm_connection.downstream_tls and not insecure_data:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received, someone closed connection"
                 logger.info(data)
-                print("\nthis is the 5th collect_json_data:")
+                print("\nOUT - downstream tls not insecure:")
                 collect_json_data(data)
         except Exception as e:
             # Something unexpected happened
@@ -266,18 +266,18 @@ def threaded_connection_handler(downstream_socket):
                 if args.show_data_all:
                     data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data}'"
                     logger.critical(data)
-                    print("\nthis is the 6th collect_json_data:")
+                    print("\nOUT - Final insecure data:")
                     collect_json_data(data, True)
                 elif args.show_data:
                     data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data[:2048]}'"
                     logger.critical(data)
-                    print("\nthis is the 7th collect_json_data:")
+                    print("\nOUT - Final insecure data:")
                     collect_json_data(data, True)
             # Log secure connections
             elif mitm_connection.downstream_tls and not mitm:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received"
                 logger.info(data)
-                print("\nthis is the 8th collect_json_data:")
+                print("\nOUT - this is the downstream tls and not mitm:")
                 collect_json_data(data)
             try:
                 # Close TLS gracefully
