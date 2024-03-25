@@ -52,6 +52,7 @@ def handle_args():
     return parser.parse_args()
 
 def log_to_json(data, critical=False):
+    json_data = { datetime.now().strftime("%H-%M-%S"): data }
     if(critical):
         with open(critical_output_file, 'a') as critical_file:
             json.dump(data, critical_file)
@@ -153,7 +154,7 @@ def threaded_connection_handler(downstream_socket):
                                         # Insecure connection! GG happy bounties, Lets log this and add the tests to successfull test list for future mitm
                                         data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = data intercepted!"
                                         logger.critical(data)
-                                        log_to_json(data)
+                                        log_to_json(data, True)
                                         connection_tests.add_successfull_test(connection, test)
                                         logged_insecure = True
                                     insecure_data += from_client
@@ -213,11 +214,11 @@ def threaded_connection_handler(downstream_socket):
                 if args.show_data_all:
                     data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data}'"
                     logger.critical(data)
-                    log_to_json(data)
+                    log_to_json(data, True)
                 elif args.show_data:
                     data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data[:2048]}'"
                     logger.critical(data)
-                    log_to_json(data)
+                    log_to_json(data, True)
             # Log secure connections
             elif mitm_connection.downstream_tls and not mitm:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received"
