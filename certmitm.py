@@ -48,22 +48,25 @@ def handle_args():
     return parser.parse_args()
 
 args = handle_args()
+# TO-DO: Remove debug i
 i=0
 def collect_json_data(data, critical=False):
     global i
     flag = False
     current_unix_time = datetime.now().timestamp()
     if(critical):
+        # TO-DO: Remove debug i
         log_entry = {f'{i} CRITICAL - {current_unix_time}': f'{data}'}
+        # TO-DO: Debug print remove
         print(f"{i} NEW CRITICAL LOG ENTRY {current_unix_time}: {log_entry} \n\n")
         try:
             with open(critical_output_file, 'r') as file:
                 critical_output_data = json.load(file)
-        except (json.JSONDecodeError, FileNotFoundError):
+        except json.JSONDecodeError as e:
             if(i==0):
                 critical_output_data = {}
             else:
-                print("JSONDecodeError, skipping...")
+                print(e)
 
         critical_output_data.update(log_entry)
 
@@ -73,33 +76,35 @@ def collect_json_data(data, critical=False):
         try:
             with open(output_file, 'r') as file:
                 output_data = json.load(file)
-        except (json.JSONDecodeError, FileNotFoundError):
+        except json.JSONDecodeError as e:
             if(i==0):
                 output_data = {}
             else:
-                print("JSONDecodeError, skipping...")
+                print(e)
         output_data.update(log_entry)
 
         with open(output_file, 'w') as file:
             json.dump(output_data, file, indent=6) 
  
     else:
+        # TO-DO: Remove debug i
         log_entry = {f'{i} INFO - {current_unix_time}': f'{data}'}
+        # TO-DO: Debug print remove
         print(f"{i} NEW LOG ENTRY {current_unix_time}: {log_entry} \n\n")
 
         try:
             with open(output_file, 'r') as file:
                 output_data = json.load(file)
-        except (json.JSONDecodeError, FileNotFoundError):
+        except json.JSONDecodeError as e:
             if (i==0):
                 output_data = {}
             else:
-                print("JSONDecodeError, trying again...")
+                print(e)
                 try:
                     with open(output_file, 'r') as file:
                         output_data = json.load(file)
-                except(json.JSONDecodeError):
-                    print("JSONDecodeError again, skipping...")
+                except json.JSONDecodeError as e:
+                    print("JSONDecodeError again, skipping...", e)
                     flag = True
         if not flag:
             output_data.update(log_entry)
@@ -107,6 +112,7 @@ def collect_json_data(data, critical=False):
                 json.dump(output_data, file, indent=6) 
         else:
             pass
+    # TO-DO: Remove debug i
     i = i + 1
     flag = False
 
