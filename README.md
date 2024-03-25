@@ -8,7 +8,7 @@ Current issues:
 * If too many functions try to write to the file at the same time it will JSONDecodeError (at least thats my intuition, needs more research)
 * Above is most likely caused by the part where we write the SSLError, ConnectionResetError, BrokenPipeError or TimeoutError data, do we need this? Potentially we can remove all the scuffed code just by skipping this...
 * If JSONDecodeError happens twice in a row it will just skip writing that log and continue merrily away
-
+---
 
 ```
                _             _ _               _                                     
