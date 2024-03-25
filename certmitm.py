@@ -55,11 +55,11 @@ def log_to_json(data, critical=False):
     json_data = { datetime.now().strftime("%H-%M-%S"): data }
     if(critical):
         with open(critical_output_file, 'a') as critical_file:
-            json.dump(data, critical_file)
-            critical_file.write('\n')
+            json.dump(json_data, critical_file)
+            critical_file.write(',\n')
     with open(output_file, 'a') as file:
-        json.dump(data, file)
-        file.write('\n')  # Add newline after each JSON object
+        json.dump(json_data, file)
+        file.write(',\n')  # Add newline after each JSON object
 
 def threaded_connection_handler(downstream_socket):
     try:
