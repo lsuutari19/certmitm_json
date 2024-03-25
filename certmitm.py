@@ -12,13 +12,8 @@ import certmitm.certtest
 import certmitm.connection
 
 from datetime import datetime
+import fcntl
 
-output_dir = os.path.join(os.getcwd(), "outputs")
-current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-output_file = os.path.join(output_dir, f"output_{current_datetime}.json")
-critical_output_file = os.path.join(output_dir, f"critical_output_{current_datetime}.json")
-
-print("output directory is: ", output_dir, "\noutput file is: ", output_file)
 
 description = """
                _             _ _               _                                     
@@ -49,17 +44,71 @@ def handle_args():
     parser.add_argument('-s', '--show-data', action="store_true", help="Log the intercepted data to console. Trunkates to a sensible length", default=False)
     parser.add_argument('--show-data-all', action="store_true", help="Log all of the intercepted data to console. Not recommended as large amounts of data will mess up your console.", default=False)
     #parser.add_argument('--upstream-proxy', nargs=1, help="Upstream proxy for MITM. For example, BURP (127.0.0.1:8080)", metavar="ADDRESS") #not yet implemented
+    parser.add_argument('-o', '--output-json', action="store_true", help='Output results into json files', default=False)
     return parser.parse_args()
 
-def log_to_json(data, critical=False):
-    json_data = { datetime.now().strftime("%H-%M-%S"): data }
+args = handle_args()
+i=0
+def collect_json_data(data, critical=False):
+    global i
+    flag = False
+    current_unix_time = datetime.now().timestamp()
     if(critical):
-        with open(critical_output_file, 'a') as critical_file:
-            json.dump(json_data, critical_file)
-            critical_file.write(',\n')
-    with open(output_file, 'a') as file:
-        json.dump(json_data, file)
-        file.write(',\n')  # Add newline after each JSON object
+        log_entry = {f'{i} CRITICAL - {current_unix_time}': f'{data}'}
+        print(f"{i} NEW CRITICAL LOG ENTRY {current_unix_time}: {log_entry} \n\n")
+        try:
+            with open(critical_output_file, 'r') as file:
+                critical_output_data = json.load(file)
+        except (json.JSONDecodeError, FileNotFoundError):
+            if(i==0):
+                critical_output_data = {}
+            else:
+                print("JSONDecodeError, skipping...")
+
+        critical_output_data.update(log_entry)
+
+        with open(critical_output_file, 'w') as file:
+            json.dump(critical_output_data, file, indent=6)
+
+        try:
+            with open(output_file, 'r') as file:
+                output_data = json.load(file)
+        except (json.JSONDecodeError, FileNotFoundError):
+            if(i==0):
+                output_data = {}
+            else:
+                print("JSONDecodeError, skipping...")
+        output_data.update(log_entry)
+
+        with open(output_file, 'w') as file:
+            json.dump(output_data, file, indent=6) 
+ 
+    else:
+        log_entry = {f'{i} INFO - {current_unix_time}': f'{data}'}
+        print(f"{i} NEW LOG ENTRY {current_unix_time}: {log_entry} \n\n")
+
+        try:
+            with open(output_file, 'r') as file:
+                output_data = json.load(file)
+        except (json.JSONDecodeError, FileNotFoundError):
+            if (i==0):
+                output_data = {}
+            else:
+                print("JSONDecodeError, trying again...")
+                try:
+                    with open(output_file, 'r') as file:
+                        output_data = json.load(file)
+                except(json.JSONDecodeError):
+                    print("JSONDecodeError again, skipping...")
+                    flag = True
+        if not flag:
+            output_data.update(log_entry)
+            with open(output_file, 'w') as file:
+                json.dump(output_data, file, indent=6) 
+        else:
+            pass
+    i = i + 1
+    flag = False
 
 def threaded_connection_handler(downstream_socket):
     try:
@@ -89,7 +138,8 @@ def threaded_connection_handler(downstream_socket):
             except (ssl.SSLError, ConnectionResetError, BrokenPipeError, TimeoutError) as e:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = {e}"
                 logger.info(data)
-                log_to_json(data)
+                print("\nthis is the 2th collect_json_data:")
+                collect_json_data(data)
                 return
             mitm_connection.set_upstream(connection.upstream_ip, connection.upstream_port)
             if mitm_connection.upstream_socket:
@@ -101,7 +151,8 @@ def threaded_connection_handler(downstream_socket):
             if not mitm_connection.upstream_socket:
                 data = f"Cannot connect to {connection.upstream_ip}: with TLS, still trying to intercept without mitm."
                 logger.info(data)
-                log_to_json(data)
+                print("\nthis is the 3th collect_json_data:")
+                collect_json_data(data)
 
         from_client = None
         from_server = None
@@ -154,7 +205,7 @@ def threaded_connection_handler(downstream_socket):
                                         # Insecure connection! GG happy bounties, Lets log this and add the tests to successfull test list for future mitm
                                         data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = data intercepted!"
                                         logger.critical(data)
-                                        log_to_json(data, True)
+                                        collect_json_data(data, True)
                                         connection_tests.add_successfull_test(connection, test)
                                         logged_insecure = True
                                     insecure_data += from_client
@@ -203,7 +254,8 @@ def threaded_connection_handler(downstream_socket):
             if mitm_connection.downstream_tls and not insecure_data:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received, someone closed connection"
                 logger.info(data)
-                log_to_json(data)
+                print("\nthis is the 5th collect_json_data:")
+                collect_json_data(data)
         except Exception as e:
             # Something unexpected happened
             logger.exception(e)
@@ -214,16 +266,19 @@ def threaded_connection_handler(downstream_socket):
                 if args.show_data_all:
                     data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data}'"
                     logger.critical(data)
-                    log_to_json(data, True)
+                    print("\nthis is the 6th collect_json_data:")
+                    collect_json_data(data, True)
                 elif args.show_data:
                     data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} intercepted data = '{insecure_data[:2048]}'"
                     logger.critical(data)
-                    log_to_json(data, True)
+                    print("\nthis is the 7th collect_json_data:")
+                    collect_json_data(data, True)
             # Log secure connections
             elif mitm_connection.downstream_tls and not mitm:
                 data = f"{connection.client_ip}: {connection.upstream_str} for test {test.name} = Nothing received"
                 logger.info(data)
-                log_to_json(data)
+                print("\nthis is the 8th collect_json_data:")
+                collect_json_data(data)
             try:
                 # Close TLS gracefully
                 mitm_connection.downstream_socket.unwrap()
@@ -255,7 +310,19 @@ def listen_forking(port):
             logger.exception("Error in starting thread: {}".format(e))
 
 if __name__ == '__main__':
-    args = handle_args()
+    if args.output_json:
+        output_dir = os.path.join(os.getcwd(), "outputs")
+        current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output_file = os.path.join(output_dir, f"output_{current_datetime}.json")
+        critical_output_file = os.path.join(output_dir, f"critical_output_{current_datetime}.json")
+
+        print("output directory is: ", output_dir, "\noutput file is: ", output_file, "\nthe critical output file is: ", critical_output_file)
+
+        with open(output_file, 'w') as file:
+            json.dump({}, file)
+
+        with open(critical_output_file, 'w') as file:
+            json.dump({}, file)
 
     logger = certmitm.util.createLogger("log")
 
