@@ -5,8 +5,8 @@ a new flag --output-json which is very scuffed at the moment, it needs to be mad
 it will create two new files currently to the outputs folder that are named "outputs_<datetime>.json" & "critical_outputs_<datetime>.json" the first one is for all outputs and the second one is only for critical outputs.
 
 Current issues:
-If too many functions try to write to the file at the same time it will JSONDecodeError (at least thats my intuition, needs more research)
-If JSONDecodeError happens twice in a row it will just skip writing that log and continue merrily away
+* If too many functions try to write to the file at the same time it will JSONDecodeError (at least thats my intuition, needs more research)
+* If JSONDecodeError happens twice in a row it will just skip writing that log and continue merrily away
 
 
 ```
